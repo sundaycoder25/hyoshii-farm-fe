@@ -1,8 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Client } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 type PicData = {
   ID: number[];
@@ -26,28 +35,36 @@ const Dashboard = () => {
   const [pic1Data, setPic1Data] = useState<PicData | null>(null);
   const [pic2Data, setPic2Data] = useState<PicData | null>(null);
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   const updateHistoricalData = (data: PicData) => {
-    setHistoricalData(prev => {
+    setHistoricalData((prev) => {
       const newData = [...prev];
       const timestamp = new Date(data.ts).toLocaleTimeString();
 
       // Jika data dengan timestamp yang sama sudah ada, update nilainya
-      const existingIndex = newData.findIndex(item => item.timestamp === timestamp);
-      
+      const existingIndex = newData.findIndex(
+        (item) => item.timestamp === timestamp
+      );
+
       if (existingIndex !== -1) {
         if (data.ID[0] === 556) {
-          newData[existingIndex].pic1GrossWeight = Number(data["Gross Weight"][0].toFixed(1));
+          newData[existingIndex].pic1GrossWeight = Number(
+            data["Gross Weight"][0].toFixed(1)
+          );
         } else if (data.ID[0] === 331) {
-          newData[existingIndex].pic2GrossWeight = Number(data["Gross Weight"][0].toFixed(1));
+          newData[existingIndex].pic2GrossWeight = Number(
+            data["Gross Weight"][0].toFixed(1)
+          );
         }
       } else {
         // Tambah data baru
         newData.push({
           timestamp,
-          pic1GrossWeight: data.ID[0] === 556 ? Number(data["Gross Weight"][0].toFixed(1)) : 0,
-          pic2GrossWeight: data.ID[0] === 331 ? Number(data["Gross Weight"][0].toFixed(1)) : 0,
+          pic1GrossWeight:
+            data.ID[0] === 556 ? Number(data["Gross Weight"][0].toFixed(1)) : 0,
+          pic2GrossWeight:
+            data.ID[0] === 331 ? Number(data["Gross Weight"][0].toFixed(1)) : 0,
         });
 
         // Jika melebihi MAX_HISTORY, hapus data paling lama
@@ -61,25 +78,38 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    // Define backend URLs
+    const BACKEND_URLS = {
+      local: "http://localhost:8080",
+      production:
+        "https://hyoshii-farm-be-569244639422.asia-southeast2.run.app",
+    };
+
+    // Choose URL based on window location
+    const backendUrl =
+      window.location.hostname === "localhost"
+        ? BACKEND_URLS.local
+        : BACKEND_URLS.production;
+
     const stompClient = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => new SockJS(`${backendUrl}/ws`),
       connectHeaders: {},
       debug: (str) => {
-        console.log('STOMP: ' + str);
+        console.log("STOMP: " + str);
       },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000
+      heartbeatOutgoing: 4000,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     stompClient.onConnect = (frame) => {
-      setConnectionStatus('Connected');
+      setConnectionStatus("Connected");
 
-      stompClient.subscribe('/topic/plc-monitoring', (message) => {
+      stompClient.subscribe("/topic/plc-monitoring", (message) => {
         try {
           const data = JSON.parse(message.body) as PicData;
-          
+
           if (data.ID[0] === 556) {
             setPic1Data(data);
           } else if (data.ID[0] === 331) {
@@ -88,18 +118,18 @@ const Dashboard = () => {
 
           updateHistoricalData(data);
         } catch (error) {
-          console.error('Error parsing message:', error);
+          console.error("Error parsing message:", error);
         }
       });
     };
 
     stompClient.onStompError = (frame) => {
-      console.error('STOMP error:', frame);
-      setConnectionStatus('Error');
+      console.error("STOMP error:", frame);
+      setConnectionStatus("Error");
     };
 
     stompClient.onWebSocketClose = () => {
-      setConnectionStatus('Disconnected');
+      setConnectionStatus("Disconnected");
     };
 
     stompClient.activate();
@@ -130,11 +160,15 @@ const Dashboard = () => {
         </div>
         <div className="flex justify-between pt-2 border-t">
           <span>Gross Weight:</span>
-          <span className="font-medium">{data["Gross Weight"][0].toFixed(1)} kg</span>
+          <span className="font-medium">
+            {data["Gross Weight"][0].toFixed(1)} kg
+          </span>
         </div>
         <div className="flex justify-between">
           <span>Reject Weight:</span>
-          <span className="font-medium">{data["Reject Weight"][0].toFixed(1)} kg</span>
+          <span className="font-medium">
+            {data["Reject Weight"][0].toFixed(1)} kg
+          </span>
         </div>
       </div>
     );
@@ -144,11 +178,13 @@ const Dashboard = () => {
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-bold">PIC Monitoring</h1>
-        <div className={`px-3 py-1 rounded-full text-sm ${
-          connectionStatus === 'Connected' 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-red-100 text-red-800'
-        }`}>
+        <div
+          className={`px-3 py-1 rounded-full text-sm ${
+            connectionStatus === "Connected"
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
           {connectionStatus}
         </div>
       </div>
@@ -157,21 +193,17 @@ const Dashboard = () => {
         {/* PIC 1 Card */}
         <Card>
           <CardHeader>
-            <CardTitle>PIC 1 (ID: {pic1Data?.ID[0] || '556'})</CardTitle>
+            <CardTitle>PIC 1 (ID: {pic1Data?.ID[0] || "556"})</CardTitle>
           </CardHeader>
-          <CardContent>
-            {renderPicData(pic1Data)}
-          </CardContent>
+          <CardContent>{renderPicData(pic1Data)}</CardContent>
         </Card>
 
         {/* PIC 2 Card */}
         <Card>
           <CardHeader>
-            <CardTitle>PIC 2 (ID: {pic2Data?.ID[0] || '331'})</CardTitle>
+            <CardTitle>PIC 2 (ID: {pic2Data?.ID[0] || "331"})</CardTitle>
           </CardHeader>
-          <CardContent>
-            {renderPicData(pic2Data)}
-          </CardContent>
+          <CardContent>{renderPicData(pic2Data)}</CardContent>
         </Card>
       </div>
 
@@ -185,26 +217,32 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={historicalData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  label={{ value: 'Time', position: 'bottom' }}
+                <XAxis
+                  dataKey="timestamp"
+                  label={{ value: "Time", position: "bottom" }}
                 />
-                <YAxis label={{ value: 'Weight (kg)', angle: -90, position: 'insideLeft' }} />
+                <YAxis
+                  label={{
+                    value: "Weight (kg)",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
                 <Tooltip />
                 <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="pic1GrossWeight" 
-                  name="PIC 1 Weight" 
-                  stroke="#8884d8" 
+                <Line
+                  type="monotone"
+                  dataKey="pic1GrossWeight"
+                  name="PIC 1 Weight"
+                  stroke="#8884d8"
                   strokeWidth={2}
                   dot={false}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="pic2GrossWeight" 
-                  name="PIC 2 Weight" 
-                  stroke="#82ca9d" 
+                <Line
+                  type="monotone"
+                  dataKey="pic2GrossWeight"
+                  name="PIC 2 Weight"
+                  stroke="#82ca9d"
                   strokeWidth={2}
                   dot={false}
                 />
