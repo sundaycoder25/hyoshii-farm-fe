@@ -10,9 +10,10 @@ export type PicData = {
 
 export type HistoricalData = {
   timestamp: string;
-  [key: string]: number | string; // Dynamic keys for each PIC's weight
+  [key: string]: number | string; // Dynamic keys for PIC weights
 };
 
+// Default values when no data available
 export const DEFAULT_PIC_DATA: PicData = {
   ID: [0],
   "Pack A": [0],
@@ -23,8 +24,8 @@ export const DEFAULT_PIC_DATA: PicData = {
   ts: new Date().toISOString(),
 };
 
-// Warna default untuk setiap PIC baru
-export const DEFAULT_COLORS = [
+// Colors for chart lines
+export const CHART_COLORS = [
   "#8884d8", // Purple
   "#82ca9d", // Green
   "#ffc658", // Yellow

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
-import MonitoringCard from "./MonitoringCard";
-import WeightChart from "./WeightChart";
-import MonitoringTable from "./MonitoringTable";
-import { createWebSocketClient } from "../services/websocket";
-import { fetchHistoricalData } from "../services/api";
-import { PicData, HistoricalData } from "../types/monitoring";
+import React, { useEffect, useState } from 'react';
+import MonitoringCard from './MonitoringCard';
+import WeightChart from './WeightChart';
+import MonitoringTable from './MonitoringTable';
+import { createWebSocketClient } from '../services/websocket';
+import { fetchHistoricalData } from '../services/api';
+import { PicData, HistoricalData } from '../types/monitoring';
 
 const MAX_HISTORY = 10;
 
@@ -13,10 +13,10 @@ const Dashboard = () => {
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [tableData, setTableData] = useState<any[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState("Connecting...");
+  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
 
-  // Get active PIC IDs from the data map
-  const activePicIds = Array.from(picDataMap.keys());
+  // Get array of active PIC IDs
+  const activePicIds = Array.from(picDataMap.keys()).sort();
 
   // Fetch historical data
   useEffect(() => {
@@ -34,33 +34,29 @@ const Dashboard = () => {
   useEffect(() => {
     const handleMessage = (data: PicData) => {
       // Update PIC data
-      setPicDataMap((prevMap) => {
+      setPicDataMap(prevMap => {
         const newMap = new Map(prevMap);
         newMap.set(data.ID[0], data);
         return newMap;
       });
 
       // Update historical data
-      setHistoricalData((prev) => {
+      setHistoricalData(prev => {
         const newData = [...prev];
         const timestamp = new Date(data.ts).toLocaleTimeString();
-        const existingIndex = newData.findIndex(
-          (item) => item.timestamp === timestamp
-        );
+        const existingIndex = newData.findIndex(item => item.timestamp === timestamp);
+        const currentPicIds = Array.from(picDataMap.keys());
 
         if (existingIndex !== -1) {
-          newData[existingIndex][`pic${data.ID[0]}GrossWeight`] = Number(
-            data["Gross Weight"][0].toFixed(1)
-          );
+          newData[existingIndex][`pic${data.ID[0]}GrossWeight`] = 
+            Number(data["Gross Weight"][0].toFixed(1));
         } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const newEntry: any = { timestamp };
-          // Use current activePicIds instead of static KNOWN_PIC_IDS
-          Array.from(picDataMap.keys()).forEach((picId) => {
-            newEntry[`pic${picId}GrossWeight`] =
-              picId === data.ID[0]
-                ? Number(data["Gross Weight"][0].toFixed(1))
-                : prev[prev.length - 1]?.[`pic${picId}GrossWeight`] || 0;
+          currentPicIds.forEach(picId => {
+            newEntry[`pic${picId}GrossWeight`] = 
+              picId === data.ID[0] ? Number(data["Gross Weight"][0].toFixed(1)) : 
+              (prev[prev.length - 1]?.[`pic${picId}GrossWeight`] || 0);
           });
           newData.push(newEntry);
 
@@ -72,7 +68,7 @@ const Dashboard = () => {
       });
 
       // Update table data
-      setTableData((prev) => {
+      setTableData(prev => {
         const newRecord = {
           timestamp: data.ts,
           picId: data.ID[0],
@@ -80,9 +76,9 @@ const Dashboard = () => {
           packB: data["Pack B"][0],
           packC: data["Pack C"][0],
           grossWeight: data["Gross Weight"][0],
-          rejectWeight: data["Reject Weight"][0],
+          rejectWeight: data["Reject Weight"][0]
         };
-
+        
         const newData = [newRecord, ...prev.slice(0, 19)];
         return newData;
       });
@@ -96,31 +92,29 @@ const Dashboard = () => {
         client.deactivate();
       }
     };
-  }, [picDataMap]); // Add picDataMap as dependency
+  }, [picDataMap]);
 
   const renderPicCards = () => {
     if (picDataMap.size === 0) {
-      return (
-        <div className="text-center text-gray-500">Waiting for PIC data...</div>
-      );
+      return <div className="col-span-3 text-center text-gray-500">Waiting for PIC data...</div>;
     }
 
-    return Array.from(picDataMap.entries()).map(([id, data]) => (
-      <MonitoringCard key={id} data={data} />
-    ));
+    return Array.from(picDataMap.entries())
+      .sort(([idA], [idB]) => idA - idB)
+      .map(([id, data]) => (
+        <MonitoringCard key={id} data={data} />
+      ));
   };
 
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-bold">PIC Monitoring</h1>
-        <div
-          className={`px-3 py-1 rounded-full text-sm ${
-            connectionStatus === "Connected"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
+        <div className={`px-3 py-1 rounded-full text-sm ${
+          connectionStatus === 'Connected' 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
           {connectionStatus}
         </div>
       </div>
@@ -130,7 +124,10 @@ const Dashboard = () => {
       </div>
 
       <div className="space-y-6">
-        <WeightChart data={historicalData} activePicIds={activePicIds} />
+        <WeightChart 
+          data={historicalData} 
+          activePicIds={activePicIds}
+        />
         <MonitoringTable data={tableData} />
       </div>
     </div>
