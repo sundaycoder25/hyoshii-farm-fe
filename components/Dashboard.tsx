@@ -4,19 +4,33 @@ import WeightChart from "./WeightChart";
 import MonitoringTable from "./MonitoringTable";
 import { createWebSocketClient } from "../services/websocket";
 import { fetchHistoricalData } from "../services/api";
-import { PicData, HistoricalData } from "../types/monitoring";
+import { PicData, HistoricalData, DEFAULT_PIC_DATA } from "../types/monitoring";
 
 const MAX_HISTORY = 10;
 
+// Inisialisasi untuk 3 PIC
+const INITIAL_PIC_IDS = [556, 331, 512]; // Sesuaikan dengan ID PIC yang digunakan
+
 const Dashboard = () => {
-  const [picDataMap, setPicDataMap] = useState<Map<number, PicData>>(new Map());
+  // Inisialisasi state dengan 3 PIC
+  const [picDataMap, setPicDataMap] = useState<Map<number, PicData>>(() => {
+    const initialMap = new Map();
+    INITIAL_PIC_IDS.forEach((id) => {
+      initialMap.set(id, {
+        ...DEFAULT_PIC_DATA,
+        ID: [id],
+        ts: new Date().toISOString(),
+      });
+    });
+    return initialMap;
+  });
+
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [tableData, setTableData] = useState<any[]>([]);
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
-  // Get all active PIC IDs from MQTT data
-  const activePicIds = Array.from(picDataMap.keys()).sort((a, b) => a - b);
+  const activePicIds = INITIAL_PIC_IDS; // Gunakan ID yang telah ditentukan
 
   useEffect(() => {
     const loadHistoricalData = async () => {
@@ -32,14 +46,21 @@ const Dashboard = () => {
 
   useEffect(() => {
     const handleMessage = (data: PicData) => {
-      // Update PIC data
+      const picId = data.ID[0];
+
+      // Update PIC data sambil mempertahankan data PIC lainnya
       setPicDataMap((prevMap) => {
         const newMap = new Map(prevMap);
-        newMap.set(data.ID[0], data);
+        if (INITIAL_PIC_IDS.includes(picId)) {
+          newMap.set(picId, {
+            ...data,
+            ts: new Date(data.ts).toISOString(),
+          });
+        }
         return newMap;
       });
 
-      // Update historical data
+      // Update historical data untuk semua PIC
       setHistoricalData((prev) => {
         const newData = [...prev];
         const timestamp = new Date(data.ts).toLocaleTimeString();
@@ -48,24 +69,19 @@ const Dashboard = () => {
         );
 
         if (existingIndex !== -1) {
-          newData[existingIndex][`pic${data.ID[0]}GrossWeight`] = Number(
+          const updatedEntry = { ...newData[existingIndex] };
+          updatedEntry[`pic${picId}GrossWeight`] = Number(
             data["Gross Weight"][0].toFixed(1)
           );
+          newData[existingIndex] = updatedEntry;
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const newEntry: any = { timestamp };
-          Array.from(picDataMap.keys()).forEach((picId) => {
-            newEntry[`pic${picId}GrossWeight`] =
-              picId === data.ID[0]
+          const newEntry: HistoricalData = { timestamp };
+          INITIAL_PIC_IDS.forEach((id) => {
+            newEntry[`pic${id}GrossWeight`] =
+              id === picId
                 ? Number(data["Gross Weight"][0].toFixed(1))
-                : prev[prev.length - 1]?.[`pic${picId}GrossWeight`] || 0;
+                : prev[prev.length - 1]?.[`pic${id}GrossWeight`] || 0;
           });
-          // Add the new PIC if it's not in previous data
-          if (!picDataMap.has(data.ID[0])) {
-            newEntry[`pic${data.ID[0]}GrossWeight`] = Number(
-              data["Gross Weight"][0].toFixed(1)
-            );
-          }
           newData.push(newEntry);
 
           if (newData.length > MAX_HISTORY) {
@@ -79,16 +95,14 @@ const Dashboard = () => {
       setTableData((prev) => {
         const newRecord = {
           timestamp: data.ts,
-          picId: data.ID[0],
+          picId: picId,
           packA: data["Pack A"][0],
           packB: data["Pack B"][0],
           packC: data["Pack C"][0],
           grossWeight: data["Gross Weight"][0],
           rejectWeight: data["Reject Weight"][0],
         };
-
-        const newData = [newRecord, ...prev.slice(0, 19)];
-        return newData;
+        return [newRecord, ...prev.slice(0, 19)];
       });
     };
 
@@ -100,7 +114,7 @@ const Dashboard = () => {
         client.deactivate();
       }
     };
-  }, [picDataMap]);
+  }, []);
 
   const renderPicCards = () => {
     if (picDataMap.size === 0) {
@@ -111,9 +125,19 @@ const Dashboard = () => {
       );
     }
 
-    return Array.from(picDataMap.entries())
-      .sort(([idA], [idB]) => idA - idB)
-      .map(([id, data]) => <MonitoringCard key={id} data={data} />);
+    // Render card untuk setiap PIC yang telah ditentukan
+    return INITIAL_PIC_IDS.map((id) => (
+      <MonitoringCard
+        key={id}
+        data={
+          picDataMap.get(id) || {
+            ...DEFAULT_PIC_DATA,
+            ID: [id],
+            ts: new Date().toISOString(),
+          }
+        }
+      />
+    ));
   };
 
   return (
