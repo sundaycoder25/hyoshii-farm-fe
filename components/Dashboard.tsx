@@ -4,12 +4,7 @@ import WeightChart from "./WeightChart";
 import MonitoringTable from "./MonitoringTable";
 import { createWebSocketClient } from "../services/websocket";
 import { fetchHistoricalData } from "../services/api";
-import {
-  PicData,
-  HistoricalData,
-  DEFAULT_PIC_DATA,
-  KNOWN_PIC_IDS,
-} from "../types/monitoring";
+import { PicData, HistoricalData } from "../types/monitoring";
 
 const MAX_HISTORY = 10;
 
@@ -20,17 +15,18 @@ const Dashboard = () => {
   const [tableData, setTableData] = useState<any[]>([]);
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
+  // Get active PIC IDs from the data map
+  const activePicIds = Array.from(picDataMap.keys());
+
   // Fetch historical data
   useEffect(() => {
     const loadHistoricalData = async () => {
       const data = await fetchHistoricalData();
-      // Only take the latest 20 records
       const latest20Records = Array.isArray(data) ? data.slice(0, 20) : [];
       setTableData(latest20Records);
     };
 
     loadHistoricalData();
-    // Refresh setiap 1 menit
     const interval = setInterval(loadHistoricalData, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -59,7 +55,8 @@ const Dashboard = () => {
         } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const newEntry: any = { timestamp };
-          KNOWN_PIC_IDS.forEach((picId) => {
+          // Use current activePicIds instead of static KNOWN_PIC_IDS
+          Array.from(picDataMap.keys()).forEach((picId) => {
             newEntry[`pic${picId}GrossWeight`] =
               picId === data.ID[0]
                 ? Number(data["Gross Weight"][0].toFixed(1))
@@ -86,7 +83,7 @@ const Dashboard = () => {
           rejectWeight: data["Reject Weight"][0],
         };
 
-        const newData = [newRecord, ...prev.slice(0, 19)]; // Keep only latest 20 records
+        const newData = [newRecord, ...prev.slice(0, 19)];
         return newData;
       });
     };
@@ -99,13 +96,13 @@ const Dashboard = () => {
         client.deactivate();
       }
     };
-  }, []);
+  }, [picDataMap]); // Add picDataMap as dependency
 
   const renderPicCards = () => {
     if (picDataMap.size === 0) {
-      return KNOWN_PIC_IDS.map((id) => (
-        <MonitoringCard key={id} data={{ ...DEFAULT_PIC_DATA, ID: [id] }} />
-      ));
+      return (
+        <div className="text-center text-gray-500">Waiting for PIC data...</div>
+      );
     }
 
     return Array.from(picDataMap.entries()).map(([id, data]) => (
@@ -133,7 +130,7 @@ const Dashboard = () => {
       </div>
 
       <div className="space-y-6">
-        <WeightChart data={historicalData} />
+        <WeightChart data={historicalData} activePicIds={activePicIds} />
         <MonitoringTable data={tableData} />
       </div>
     </div>
